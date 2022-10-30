@@ -21,6 +21,10 @@ normalMap = {'À': 'A', 'Á': 'A', 'Â': 'A', 'Ã': 'A', 'Ä': 'A',
              '§': 'S',  '³': '3', '²': '2', '¹': '1'}
 normalize = str.maketrans(normalMap)
 
+try:
+    DICTIONARY = Path(__file__).parent / "data" / "gutenberg.txt"  # from http://www.3zsoftware.com/fr/listes.php
+except:
+    DICTIONARY =  Path(".") / "data" / "gutenberg.txt"  # from http://www.3zsoftware.com/fr/listes.php
 SCOREMAP = {'a': 1, 'b': 3, 'c': 3, 'd': 2, 'e': 1, 'f': 4, 'g': 2, 'h': 4, 'i': 1, 'j': 8, 'k': 10, 'l': 1, 'm': 2, 'n': 1, 'o': 1, 'p': 3, 'q': 8, 'r': 1, 's': 1, 't': 1, 'u': 1, 'v': 4, 'w': 10, 'x': 10, 'y': 10, 'z': 10}
 
 
@@ -31,7 +35,6 @@ Usage
 Case 1: Command to find words containing all the following letters: A, X, T, M, E, and S
 'python grumble.py -l AXTMES'
 """
-DATA = Path(__file__).parent / "data" / "gutenberg.txt"  # from http://www.3zsoftware.com/fr/listes.php
 
 
 class Arguments:
@@ -65,6 +68,32 @@ def get_letters(letters: str) -> List:
     return list(letters.upper())
 
 
+def search_words2(letters: List, min_size: int=5):
+    MATCHES = []
+    letters = "".join([_.lower().translate(normalize) for _ in letters])
+
+    with open(DICTIONARY, "r") as file_words:
+        for word in file_words:
+            word = word.replace("-", "").strip().lower().translate(normalize)
+
+            # all letters composing word must be present in the set of input letters
+            if False in [ _ in letters for _ in word ]:
+                continue
+
+            # frequency of letters composing word must not exceed frequency of input letters
+            if not is_frequency_valid(word=word, letters=letters):
+                continue
+
+            if len(word) < min_size :
+                continue
+
+            match = (word, score_word(word=word))
+            MATCHES.append(match)
+
+    return MATCHES
+
+
+
 def search_words(letters: List, exclude: List):
     MATCHES = []
     maximum_letter_to_found = len(letters)
@@ -74,7 +103,7 @@ def search_words(letters: List, exclude: List):
     while maximum_letter_to_found > threshold:
         print("Searching match for {} of the {} letters".format(maximum_letter_to_found, len(letters)))
 
-        with open(DATA, "r") as file_words:
+        with open(DICTIONARY, "r") as file_words:
             for word in file_words:
                 word = word.replace("-", "").strip().lower().translate(normalize)
 
@@ -114,28 +143,21 @@ if __name__ == "__main__":
     args = parse_args()
 
     letters = get_letters(args.l)
-    exclude = [ x.upper() for x in string.ascii_lowercase if x.upper() not in letters ] 
+    try:
+        min_size = int(args.min_size)
+    except:
+        min_size = 5
 
     print("Search words that best match: {}".format(", ".join(letters)))
-    MATCHES = search_words(letters=letters, exclude=exclude)
+    MATCHES = search_words2(letters=letters, min_size=min_size)
 
     if not MATCHES:
-        print("No word have been found containing all the letters below:")
+        print("No word have with an minimum size of {} been found containing all the letters below:".format(min_size))
         print("List of searched letters: {}".format(" - ".join(letters).upper()))
 
     MATCHES = sorted(MATCHES, key=lambda x: x[1], reverse=True)
 
-    print("{} matches have been found!\n".format(len(MATCHES)))
+    print("{} words of at least {} eligible letters have been found!\n".format(len(MATCHES), min_size))
     print("Top 10 matches:")
     for match in MATCHES[:10]:
         print("- {} (score: {})".format(match[0], match[1]))
-
-# word = "sucates"
-# letters = ['G', 'U', 'A', 'S', 'E', 'S', 'C', 'D', 'E', 'D', 'E', 'C', 'T', 'A', 'L']
-# letters = "".join(letters).lower()
-
-# ele_freq_word = collections.Counter(word)
-# ele_freq_letters = collections.Counter(letters)
-
-
-
